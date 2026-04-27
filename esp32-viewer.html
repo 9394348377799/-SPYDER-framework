@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ESP32 Stream</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #000;
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    font-family: monospace;
+  }
+
+  #stream {
+    width: 100vw;
+    height: 100vh;
+    object-fit: contain;
+    display: none;
+  }
+
+  #overlay {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    background: #000;
+  }
+
+  #overlay input {
+    background: transparent;
+    border: 1px solid #333;
+    color: #fff;
+    padding: 10px 14px;
+    font-family: monospace;
+    font-size: 14px;
+    width: min(480px, 90vw);
+    outline: none;
+    border-radius: 2px;
+  }
+
+  #overlay input:focus { border-color: #666; }
+
+  #overlay button {
+    background: #fff;
+    color: #000;
+    border: none;
+    padding: 10px 24px;
+    font-family: monospace;
+    font-size: 14px;
+    cursor: pointer;
+    border-radius: 2px;
+  }
+
+  #overlay button:hover { background: #ccc; }
+
+  #error {
+    color: #f55;
+    font-size: 12px;
+    display: none;
+  }
+</style>
+</head>
+<body>
+
+<!-- Full-screen stream image (for MJPEG) or video -->
+<img id="stream" alt="stream">
+
+<div id="overlay">
+  <input id="url-input" type="text" placeholder="http://192.168.x.x:81/stream" />
+  <button onclick="connect()">Connect</button>
+  <span id="error">Could not load stream. Check the URL.</span>
+</div>
+
+<script>
+  const stream = document.getElementById('stream');
+  const overlay = document.getElementById('overlay');
+  const urlInput = document.getElementById('url-input');
+  const errorMsg = document.getElementById('error');
+
+  // Auto-connect if URL is in the hash: esp32-viewer.html#http://...
+  window.addEventListener('load', () => {
+    const hash = decodeURIComponent(location.hash.slice(1));
+    if (hash.startsWith('http')) {
+      urlInput.value = hash;
+      connect();
+    }
+  });
+
+  urlInput.addEventListener('keydown', e => {
+    if (e.key === 'Enter') connect();
+  });
+
+  function connect() {
+    const url = urlInput.value.trim();
+    if (!url) return;
+
+    errorMsg.style.display = 'none';
+    stream.style.display = 'block';
+    stream.src = url;
+
+    stream.onload = () => {
+      overlay.style.display = 'none';
+    };
+
+    stream.onerror = () => {
+      // Try as <video> source instead
+      tryVideo(url);
+    };
+
+    // Update hash so you can bookmark/reload
+    location.hash = encodeURIComponent(url);
+  }
+
+  function tryVideo(url) {
+    stream.style.display = 'none';
+
+    // Swap to a <video> element
+    const vid = document.createElement('video');
+    vid.src = url;
+    vid.autoplay = true;
+    vid.muted = true;
+    vid.playsInline = true;
+    vid.style.cssText = 'width:100vw;height:100vh;object-fit:contain;display:block;';
+
+    vid.oncanplay = () => {
+      overlay.style.display = 'none';
+      document.body.appendChild(vid);
+    };
+
+    vid.onerror = () => {
+      stream.style.display = 'none';
+      errorMsg.style.display = 'block';
+    };
+  }
+</script>
+</body>
+</html>
